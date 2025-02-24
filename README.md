@@ -1,36 +1,91 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Headless FIAT/Crypto Payment Integration with Crossmint
 
-## Getting Started
+This project demonstrates a headless integration with Crossmint's payment system, allowing users to pay with both FIAT and USDC (crypto) for NFT minting.
 
-First, run the development server:
+## Features
 
+- FIAT payment support
+- USDC payment on Base Sepolia network
+- Seamless wallet connection with RainbowKit
+- Real-time transaction processing
+- Automatic order status updates
+- Error handling and user feedback
+- Responsive UI with Tailwind CSS
+
+## Prerequisites
+
+- Node.js 16.x or later
+- npm or yarn
+- A Crossmint account and API credentials
+- Base Sepolia network configuration
+- WalletConnect Project ID
+
+## Setup
+
+1. Clone the repository:
+```bash
+git clone https://github.com/xm-cse/headlessTest.git
+cd headlessTest
+```
+
+2. Install dependencies:
+```bash
+npm install
+# or
+yarn install
+```
+
+3. Copy the environment variables file:
+```bash
+cp .env.local.example .env.local
+```
+
+4. Fill in your environment variables in `.env.local`:
+   - Get your WalletConnect Project ID from [WalletConnect Dashboard](https://cloud.walletconnect.com)
+   - Get your Crossmint credentials from [Crossmint Dashboard](https://dashboard.crossmint.com)
+   - Set your Base Sepolia payer address
+
+5. Start the development server:
 ```bash
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Environment Variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Required environment variables:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID`: Your WalletConnect project ID
+- `CROSSMINT_CLIENT_ID`: Your Crossmint client ID
+- `CROSSMINT_CLIENT_SECRET`: Your Crossmint client secret
+- `CROSSMINT_COLLECTION_ID`: Your NFT collection ID
+- `CROSSMINT_PAYER_ADDRESS`: The Base Sepolia address that will receive the payments
+- `NEXT_PUBLIC_ENABLE_TESTNETS`: Set to 'true' for testing on Base Sepolia
 
-## Learn More
+## Usage
 
-To learn more about Next.js, take a look at the following resources:
+1. User initiates payment
+2. For USDC payments:
+   - Connect wallet using WalletConnect
+   - Confirm transaction
+   - Wait for processing
+   - Receive NFT confirmation
+3. For FIAT payments:
+   - Enter payment details
+   - Complete checkout
+   - Receive NFT confirmation
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Network Support
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Currently supports:
+- Base Sepolia (testnet)
+- More networks can be added by modifying the configuration
 
-## Deploy on Vercel
+## Contributing
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+
+[MIT](https://choosealicense.com/licenses/mit/)

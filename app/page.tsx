@@ -1,101 +1,97 @@
+'use client';
+
 import Image from "next/image";
+import { useState } from "react";
+import { PaymentElement } from "./components/PaymentElement";
+import { SuccessPage } from "./components/SuccessPage";
+import { USDCPayment } from "./components/USDCPayment";
+
+type ViewState = 'initial' | 'checkout' | 'crypto-checkout' | 'success';
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [viewState, setViewState] = useState<ViewState>('initial');
+  const [orderId, setOrderId] = useState<string | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+  const handleCheckoutComplete = (completedOrderId: string) => {
+    setOrderId(completedOrderId);
+    setViewState('success');
+  };
+
+  const handleReset = () => {
+    setViewState('initial');
+    setOrderId(null);
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col p-8 bg-gradient-to-b from-zinc-900 via-black to-black text-white">
+      <main className="max-w-4xl w-full mx-auto text-center">
+        {/* Header Section - Always visible */}
+        <div className={`transition-all duration-300 ${viewState !== 'initial' ? 'scale-75' : ''}`}>
+          <h1 className="text-5xl font-bold mb-8 bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 via-blue-500 to-cyan-400">
+            CSE Headless Checkout
+          </h1>
+          
+          <div className="mb-8 relative w-full aspect-square max-w-sm mx-auto">
+            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 via-blue-500/20 to-cyan-500/20 rounded-2xl -m-2 blur-xl"></div>
             <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+              src="https://tan-odd-galliform-276.mypinata.cloud/ipfs/bafybeibfu2vf2lrbusmhdb5ft57irqo7kpoj6hzqan3wrtumw6bstnpgvq"
+              alt="NFT Image"
+              fill
+              className="object-contain rounded-2xl"
+              priority
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+          </div>
+          
+          <div className="flex flex-row gap-6 justify-center items-center max-w-5xl mx-auto mb-8">
+            <button
+              onClick={() => setViewState('checkout')}
+              disabled={viewState !== 'initial'}
+              className="group relative inline-flex items-center justify-center px-10 py-4 text-lg font-bold transition-all duration-200 bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 rounded-xl hover:from-indigo-700 hover:via-blue-700 hover:to-cyan-700 shadow-xl shadow-indigo-500/20 hover:shadow-indigo-500/40 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none min-w-[200px]"
+            >
+              <span className="absolute inset-0 w-full h-full bg-white/20 group-hover:bg-white/10 rounded-xl"></span>
+              <span className="relative">Pay with Card</span>
+            </button>
+
+            <div className="w-px h-8 bg-zinc-700"></div>
+
+            <button
+              onClick={() => setViewState('crypto-checkout')}
+              disabled={viewState !== 'initial'}
+              className="group relative inline-flex items-center justify-center px-10 py-4 text-lg font-bold transition-all duration-200 bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 rounded-xl hover:from-indigo-700 hover:via-blue-700 hover:to-cyan-700 shadow-xl shadow-indigo-500/20 hover:shadow-indigo-500/40 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none min-w-[200px]"
+            >
+              <span className="absolute inset-0 w-full h-full bg-white/20 group-hover:bg-white/10 rounded-xl"></span>
+              <span className="relative">Pay with USDC</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Dynamic Content Section */}
+        <div className="mt-8">
+          {viewState === 'checkout' && (
+            <div className="animate-fadeIn">
+              <PaymentElement onComplete={handleCheckoutComplete} />
+            </div>
+          )}
+          
+          {viewState === 'crypto-checkout' && (
+            <div className="animate-fadeIn">
+              <USDCPayment onComplete={handleCheckoutComplete} />
+            </div>
+          )}
+          
+          {viewState === 'success' && orderId && (
+            <div className="animate-fadeIn">
+              <SuccessPage orderId={orderId} />
+              <button
+                onClick={handleReset}
+                className="mt-8 inline-flex items-center justify-center px-6 py-3 text-base font-medium transition-all duration-200 bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 rounded-xl hover:from-indigo-700 hover:via-blue-700 hover:to-cyan-700 shadow-xl shadow-indigo-500/20 hover:shadow-indigo-500/40 hover:-translate-y-1"
+              >
+                Purchase Another NFT
+              </button>
+            </div>
+          )}
         </div>
       </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
   );
 }
