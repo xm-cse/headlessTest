@@ -7,7 +7,7 @@ import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 
 const config = getDefaultConfig({
   appName: "CSE Headless Checkout",
-  projectId: "7aa7bba2fdf1a18f1b6b8b9325e2fc88",
+  projectId: process.env.NEXT_PUBLIC_REOWN_PROJECT_ID ?? "",
   chains: [baseSepolia],
   ssr: true,
 });

@@ -18,7 +18,7 @@ export async function GET(request: Request) {
       `${CROSSMINT_API_URL}/orders/${orderId}`,
       {
         headers: {
-          'x-api-key': process.env.CROSSMINT_API_KEY!,
+          'x-api-key': process.env.CROSSMINT_API_KEY ?? "",
         },
       }
     );

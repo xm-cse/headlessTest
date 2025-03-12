@@ -9,20 +9,20 @@ export async function POST() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.CROSSMINT_API_KEY!,
+        'x-api-key': process.env.CROSSMINT_API_KEY ?? "",
       },
       body: JSON.stringify({
         recipient: {
-          email: process.env.CROSSMINT_EMAIL
+          email: process.env.CROSSMINT_EMAIL ?? ""
         },
         locale: "en-US",
         payment: {
           method: "base-sepolia",
           currency: "usdc",
-          payerAddress: process.env.CROSSMINT_PAYER_ADDRESS
+          payerAddress: process.env.CROSSMINT_PAYER_ADDRESS ?? ""
         },
         lineItems: {
-          collectionLocator: `crossmint:${process.env.CROSSMINT_COLLECTION_ID}`
+          collectionLocator: `crossmint:${process.env.CROSSMINT_COLLECTION_ID ?? ""}`
         }
       })
     });

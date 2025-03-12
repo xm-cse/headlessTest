@@ -33,6 +33,8 @@ cd headlessTest
 npm install
 # or
 yarn install
+# or
+pnpm install
 ```
 
 3. Copy the environment variables file:
@@ -41,7 +43,7 @@ cp .env.local.example .env.local
 ```
 
 4. Fill in your environment variables in `.env.local`:
-   - Get your WalletConnect Project ID from [WalletConnect Dashboard](https://cloud.walletconnect.com)
+   - Get your Reown Project ID from [Reown Dashboard](https://cloud.reown.com/)
    - Get your Crossmint credentials from [Crossmint Dashboard](https://dashboard.crossmint.com)
    - Set your Base Sepolia payer address
 
@@ -50,13 +52,15 @@ cp .env.local.example .env.local
 npm run dev
 # or
 yarn dev
+# or
+pnpm dev
 ```
 
 ## Environment Variables
 
 Required environment variables:
 
-- `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID`: Your WalletConnect project ID
+- `NEXT_PUBLIC_REOWN_PROJECT_ID`: Your Reown project ID
 - `CROSSMINT_CLIENT_ID`: Your Crossmint client ID
 - `CROSSMINT_CLIENT_SECRET`: Your Crossmint client secret
 - `CROSSMINT_COLLECTION_ID`: Your NFT collection ID
