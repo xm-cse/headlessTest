@@ -86,8 +86,38 @@ export interface PhysicalAddress {
 export type PaymentRequest =
   | {
       receiptEmail?: string;
-      method: Extract<PaymentMethod, "arbitrum-sepolia" | "base-sepolia" | "ethereum-sepolia" | "optimism-sepolia" | "arbitrum" | "bsc" | "ethereum" | "optimism">;
-      currency: Extract<Currency, "eth" | "usdc" | "degen" | "brett" | "toshi" | "usdxm">;
+      method: "stripe-payment-element";
+      currency?: Extract<
+        Currency,
+        | "usd"
+        | "eur"
+        | "aud"
+        | "gbp"
+        | "jpy"
+        | "sgd"
+        | "hkd"
+        | "krw"
+        | "inr"
+        | "vnd"
+      >;
+    }
+  | {
+      receiptEmail?: string;
+      method: Extract<
+        PaymentMethod,
+        | "arbitrum-sepolia"
+        | "base-sepolia"
+        | "ethereum-sepolia"
+        | "optimism-sepolia"
+        | "arbitrum"
+        | "bsc"
+        | "ethereum"
+        | "optimism"
+      >;
+      currency: Extract<
+        Currency,
+        "eth" | "usdc" | "degen" | "brett" | "toshi" | "usdxm"
+      >;
       payerAddress?: string;
     }
   | {
@@ -95,11 +125,6 @@ export type PaymentRequest =
       method: "solana";
       currency: Extract<Currency, "sol" | "usdc" | "bonk" | "wif" | "mother">;
       payerAddress?: string;
-    }
-  | {
-      receiptEmail?: string;
-      method: "stripe-payment-element";
-      currency?: Extract<Currency, "usd" | "eur" | "aud" | "gbp" | "jpy" | "sgd" | "hkd" | "krw" | "inr" | "vnd">;
     };
 
 // Line item metadata
@@ -156,7 +181,12 @@ export interface LineItem {
 
 // Overall order quote
 export interface OrderQuote {
-  status: "valid" | "expired" | "all-line-items-unavailable" | "requires-physical-address" | string;
+  status:
+    | "valid"
+    | "expired"
+    | "all-line-items-unavailable"
+    | "requires-physical-address"
+    | string;
   quotedAt: string;
   expiresAt: string;
   totalPrice: Price;
@@ -168,6 +198,9 @@ export interface PaymentPreparation {
   payerAddress: string;
   serializedTransaction: string;
   paymentAddress?: string;
+  stripePublishableKey?: string;
+  stripeClientSecret?: string;
+  stripeEphemeralKeySecret?: string;
 }
 
 // Payment information in response
@@ -206,13 +239,13 @@ export interface ExecutionParameters {
 }
 
 // Line items for order creation
-export type LineItems = 
+export type LineItems =
   | {
       collectionLocator: string;
       callData?: {
         totalPrice?: string;
         [key: string]: string | number | boolean | object | undefined;
-      }
+      };
     }
   | {
       productLocator: string;
@@ -234,7 +267,7 @@ export type LineItems =
       callData?: {
         totalPrice?: string;
         [key: string]: string | number | boolean | object | undefined;
-      }
+      };
     }>
   | Array<{
       tokenLocator: string;

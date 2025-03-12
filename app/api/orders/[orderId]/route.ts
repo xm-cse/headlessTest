@@ -75,7 +75,6 @@ export async function PATCH(
 
     console.log(`Editing order ${orderId} with Crossmint...`, {
       recipient: body.recipient,
-      payment: body.payment,
     });
 
     // Get Authorization header if present (for client secret)

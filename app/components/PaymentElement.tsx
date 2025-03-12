@@ -5,9 +5,13 @@ import {
   useStripe,
 } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import type { CreateOrderRequest } from "@/types/orders";
+import type {
+  CreateOrderRequest,
+  CreateOrderResponse,
+  Order,
+} from "@/types/orders";
 import { crossmintCollectionId, crossmintDefaultEmail } from "@/lib/config";
 
 interface PaymentElementProps {
@@ -16,54 +20,79 @@ interface PaymentElementProps {
 
 export function PaymentElement({ onComplete }: PaymentElementProps) {
   const [orderData, setOrderData] = useState<{
-    clientSecret?: string;
+    stripeClientSecret?: string;
     orderId?: string;
     stripePublishableKey?: string;
   }>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const orderCreated = useRef(false);
 
   useEffect(() => {
     async function createOrder() {
+      if (orderCreated.current) {
+        return;
+      }
+
+      // Prevent multiple order creations
+      orderCreated.current = true;
+
       try {
-        // Create initial order
         const createOrderRequest: CreateOrderRequest = {
           payment: {
             method: "stripe-payment-element",
+            receiptEmail: crossmintDefaultEmail,
           },
           lineItems: {
             collectionLocator: `crossmint:${crossmintCollectionId}`,
-            callData: {
-              quantity: 1,
-            },
           },
         };
-
+        // 1 - Create Order
         const createOrderResponse = await axios.post(
           "/api/orders",
           createOrderRequest
         );
 
-        const { order } = createOrderResponse.data;
+        if (!createOrderResponse.data || !createOrderResponse.data.order) {
+          setError("Failed to create order: Invalid response format");
+          setLoading(false);
+          return;
+        }
+
+        const { order }: CreateOrderResponse = createOrderResponse.data;
         const orderId = order.orderId;
 
-        // Update order with recipient
-        await axios.patch(`/api/orders/${orderId}`, {
-          recipient: {
-            email: crossmintDefaultEmail,
-          },
-        });
+        // 2 - Update Order
+        const updateOrderResponse = await axios.patch(
+          `/api/orders/${orderId}`,
+          {
+            recipient: {
+              email: crossmintDefaultEmail,
+            },
+          }
+        );
 
-        // Get updated order details
-        const getOrderResponse = await axios.get(`/api/orders/${orderId}`);
+        if (!updateOrderResponse.data || !updateOrderResponse.data) {
+          setError("Failed to update order: Invalid response format");
+          setLoading(false);
+          return;
+        }
+
+        const updatedOrder: Order = updateOrderResponse.data;
 
         const stripePublishableKey =
-          getOrderResponse.data.payment.preparation.stripePublishableKey;
+          updatedOrder?.payment?.preparation?.stripePublishableKey;
         const stripeClientSecret =
-          getOrderResponse.data.payment.preparation.stripeClientSecret;
+          updatedOrder?.payment?.preparation?.stripeClientSecret;
+
+        if (!stripePublishableKey || !stripeClientSecret) {
+          setError("Payment configuration is missing from the response");
+          setLoading(false);
+          return;
+        }
 
         setOrderData({
-          clientSecret: stripeClientSecret,
+          stripeClientSecret,
           orderId,
           stripePublishableKey,
         });
@@ -81,7 +110,7 @@ export function PaymentElement({ onComplete }: PaymentElementProps) {
   if (loading) {
     return (
       <div className="flex justify-center p-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500" />
       </div>
     );
   }
@@ -92,7 +121,7 @@ export function PaymentElement({ onComplete }: PaymentElementProps) {
 
   if (
     !orderData.stripePublishableKey ||
-    !orderData.clientSecret ||
+    !orderData.stripeClientSecret ||
     !orderData.orderId
   ) {
     return (
@@ -106,11 +135,12 @@ export function PaymentElement({ onComplete }: PaymentElementProps) {
     <div className="w-full max-w-2xl mx-auto">
       <ElementsProviderWrapper
         stripePublishableKey={orderData.stripePublishableKey}
-        stripeClientSecret={orderData.clientSecret}
+        stripeClientSecret={orderData.stripeClientSecret}
       >
         <div className="w-full p-6 bg-zinc-800/50 backdrop-blur rounded-xl border border-zinc-700">
           <StripePaymentElement
             className="w-full mb-6"
+            key={`${orderData.stripeClientSecret}-${orderData.stripePublishableKey}`}
             options={{
               layout: "tabs",
               defaultValues: {
