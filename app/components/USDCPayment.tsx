@@ -1,42 +1,91 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { parseTransaction } from "viem";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useSendTransaction } from "wagmi";
+import { 
+  createOrder, 
+  checkOrderStatus, 
+  handleApiError, 
+  OrderDetails,
+  ChainOption,
+  CurrencyOption,
+  CHAIN_OPTIONS,
+  CURRENCY_OPTIONS
+} from '../services/api';
+import { 
+  LoadingSpinner, 
+  ErrorMessage, 
+  SuccessMessage, 
+  CodeDisplay, 
+  TransactionButton,
+  PaymentContainer,
+  PaymentOptionsSelector
+} from './ui/PaymentUI';
 
 interface USDCPaymentProps {
   onComplete: (orderId: string) => void;
 }
 
-interface OrderDetails {
-  orderId: string;
-  clientSecret: string;
-  paymentAddress: string;
-  amount: string;
-  serializedTx?: string;
+// For the API response that includes payment status
+interface OrderResponse extends OrderDetails {
+  payment?: {
+    status?: string;
+    [key: string]: any;
+  };
 }
 
+// Payment status types for better type safety
+type OrderStatus = 'selecting-options' | 'creating' | 'awaiting-payment' | 'processed' | 'error';
+
 export function USDCPayment({ onComplete }: USDCPaymentProps) {
-  const [orderStatus, setOrderStatus] = useState<'creating' | 'awaiting-payment' | 'completed' | 'processed' | 'error'>('creating');
+  // Order and status state
+  const [orderStatus, setOrderStatus] = useState<OrderStatus>('selecting-options');
   const [error, setError] = useState<string | null>(null);
   const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
   const orderCreated = useRef(false);
+  
+  // Chain and currency selection state
+  const [selectedChain, setSelectedChain] = useState<ChainOption>('ethereum-sepolia');
+  const [selectedCurrency, setSelectedCurrency] = useState<CurrencyOption>('usdc');
+  
+  // Transaction state
   const { data: hash, isPending, sendTransactionAsync } = useSendTransaction();
-  const [isProcessing, setIsProcessing] = useState(false);
 
-  const checkOrderStatus = async (orderId: string) => {
+  // Handle chain selection
+  const handleChainChange = useCallback((chain: ChainOption) => {
+    setSelectedChain(chain);
+  }, []);
+
+  // Handle currency selection
+  const handleCurrencyChange = useCallback((currency: CurrencyOption) => {
+    setSelectedCurrency(currency);
+  }, []);
+
+  // Start the order creation process
+  const handleStartPayment = useCallback(() => {
+    setOrderStatus('creating');
+    orderCreated.current = false;
+  }, []);
+
+  // Check order status
+  const fetchOrderStatus = useCallback(async (orderId: string): Promise<void> => {
     try {
-      const response = await fetch(`/api/crypto/order-status?orderId=${orderId}`);
-      const data = await response.json();
-      console.log('Initial status check:', data);
+      const data = await checkOrderStatus(orderId);
+      console.log('Order status check:', data);
     } catch (err) {
       console.error('Status check error:', err);
+      // Not setting error state here as this is just informational
     }
-  };
+  }, []);
 
-  const signAndSendTransaction = async () => {
-    if (!orderDetails?.serializedTx) return;
+  // Sign and send transaction
+  const signAndSendTransaction = useCallback(async (): Promise<void> => {
+    if (!orderDetails?.serializedTx) {
+      setError('No transaction details available');
+      return;
+    }
     
     try {
       const txn = parseTransaction(orderDetails.serializedTx as `0x${string}`);
@@ -47,87 +96,25 @@ export function USDCPayment({ onComplete }: USDCPaymentProps) {
         chainId: txn.chainId,
       });
     } catch (err) {
-      console.error('Transaction error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to send transaction');
+      setError(handleApiError(err));
     }
-  };
+  }, [orderDetails, sendTransactionAsync]);
 
-  const processCryptoPayment = async () => {
-    if (!orderDetails || !hash) return;
-    setIsProcessing(true);
-    
-    const body = {
-      orderId: orderDetails.orderId,
-      clientSecret: orderDetails.clientSecret,
-      txId: hash,
-      currency: 'usdc',
-      network: 'base-sepolia'
-    };
-
-    console.log('Processing crypto payment with:', {
-      ...body,
-      clientSecretLength: body.clientSecret?.length
-    });
-    
-    try {
-      const response = await fetch('/api/crypto/process-payment', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
-
-      console.log('Process payment response status:', response.status);
-      const data = await response.json();
-      console.log('Process payment response data:', data);
-
-      if (!response.ok) {
-        const errorMessage = data.details ? 
-          `Failed to process payment: ${JSON.stringify(data.details)}` :
-          `Failed to process payment: ${JSON.stringify(data)}`;
-        throw new Error(errorMessage);
-      }
-
-      setOrderStatus('processed');
-      onComplete(orderDetails.orderId);
-    } catch (err) {
-      console.error('Payment processing error:', {
-        error: err,
-        message: err instanceof Error ? err.message : String(err),
-        orderDetails: {
-          orderId: orderDetails.orderId,
-          hasClientSecret: !!orderDetails.clientSecret,
-          clientSecretLength: orderDetails.clientSecret?.length
-        },
-        hash
-      });
-      setError(err instanceof Error ? err.message : 'Failed to process payment');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
+  // Create order only when status is 'creating'
   useEffect(() => {
-    const createOrder = async () => {
-      if (orderCreated.current) return;
+    const initializeOrder = async (): Promise<void> => {
+      if (orderCreated.current || orderStatus !== 'creating') return;
       orderCreated.current = true;
 
       try {
-        const response = await fetch('/api/crypto/create-order', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to create order');
-        }
-
-        const data = await response.json();
+        const data = await createOrder({
+          chain: selectedChain,
+          currency: selectedCurrency
+        }) as OrderResponse;
+        
         console.log('Order creation response:', data);
         
+        // Check for insufficient funds in the API response
         if (data.payment?.status === 'crypto-payer-insufficient-funds') {
           setError('Insufficient funds. Please make sure you have enough ETH to cover the transaction.');
           setOrderStatus('error');
@@ -136,136 +123,139 @@ export function USDCPayment({ onComplete }: USDCPaymentProps) {
 
         setOrderDetails(data);
         setOrderStatus('awaiting-payment');
-        await checkOrderStatus(data.orderId);
+        await fetchOrderStatus(data.orderId);
       } catch (err) {
-        console.error('Order creation error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to create order');
+        setError(handleApiError(err));
         setOrderStatus('error');
       }
     };
 
-    createOrder();
-  }, []);
+    initializeOrder();
+  }, [orderStatus, selectedChain, selectedCurrency, fetchOrderStatus]);
 
+  // Handle transaction confirmation and transition to processed state
   useEffect(() => {
-    if (hash) {
-      setOrderStatus('completed');
+    if (hash && orderDetails) {
+      console.log('Transaction confirmed, webhook will process the payment.');
+      setOrderStatus('processed');
+      onComplete(orderDetails.orderId);
     }
-  }, [hash]);
+  }, [hash, orderDetails, onComplete]);
 
-  console.log('Current orderDetails:', orderDetails);
+  // Render different UI states based on order status
+  const renderContent = () => {
+    if (error) {
+      return (
+        <>
+          <ErrorMessage message={error} />
+          <button
+            onClick={() => {
+              setError(null);
+              setOrderStatus('selecting-options');
+              orderCreated.current = false;
+            }}
+            className="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded"
+          >
+            Try Again
+          </button>
+        </>
+      );
+    }
 
-  if (error) {
-    return (
-      <div className="rounded-xl bg-red-500/10 p-6 text-red-500">
-        <h3 className="text-xl font-bold mb-2">Error</h3>
-        <p>{error}</p>
-      </div>
-    );
-  }
+    switch (orderStatus) {
+      case 'selecting-options':
+        return (
+          <>
+            <PaymentOptionsSelector
+              chainOptions={CHAIN_OPTIONS}
+              currencyOptions={CURRENCY_OPTIONS}
+              selectedChain={selectedChain}
+              selectedCurrency={selectedCurrency}
+              onChainChange={handleChainChange}
+              onCurrencyChange={handleCurrencyChange}
+            />
+            <button
+              onClick={handleStartPayment}
+              className="w-full bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 hover:from-indigo-700 hover:via-blue-700 hover:to-cyan-700 text-white font-bold py-3 px-4 rounded"
+            >
+              Continue with {selectedCurrency.toUpperCase()} on {
+                CHAIN_OPTIONS.find(option => option.id === selectedChain)?.name
+              }
+            </button>
+          </>
+        );
+      
+      case 'creating':
+        return <LoadingSpinner text="Creating order..." />;
+        
+      case 'processed':
+        return <SuccessMessage />;
+        
+      case 'awaiting-payment':
+        if (!orderDetails) return null;
+        
+        return (
+          <div className="space-y-6">
+            <div className="bg-indigo-500/10 rounded-lg p-6 border border-indigo-500/20">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-indigo-400">Payment Details</h3>
+                <div className="px-3 py-1 rounded-full bg-indigo-900/50 text-xs font-semibold text-indigo-300">
+                  {selectedCurrency.toUpperCase()} on {
+                    CHAIN_OPTIONS.find(option => option.id === selectedChain)?.name
+                  }
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <CodeDisplay label="Order ID" code={orderDetails.orderId} />
+                
+                <div>
+                  <ConnectButton showBalance={false} chainStatus="full" accountStatus="full" />
+                </div>
+                
+                {orderDetails.serializedTx && (
+                  <div>
+                    <CodeDisplay label="Transaction Details" code={orderDetails.serializedTx} />
+                    
+                    {error && (
+                      <div className="mt-2 p-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded">
+                        {error.includes('insufficient funds') ? 
+                          'Insufficient funds. Please make sure you have enough ETH to cover the transaction.' : 
+                          error
+                        }
+                      </div>
+                    )}
+                    
+                    <TransactionButton 
+                      onClick={signAndSendTransaction}
+                      disabled={isPending}
+                      isPending={isPending}
+                    />
+                    
+                    {hash && (
+                      <div className="mt-4 p-2 bg-zinc-900/50 rounded">
+                        <p className="text-sm text-zinc-400">Transaction Hash:</p>
+                        <code className="text-xs break-all">{hash}</code>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                <CodeDisplay label="Payment Address" code={orderDetails.paymentAddress} />
+                <CodeDisplay label="Amount" code={`${orderDetails.amount} ${selectedCurrency.toUpperCase()}`} />
+              </div>
+            </div>
+          </div>
+        );
+        
+      default:
+        return null;
+    }
+  };
 
   return (
-    <div className="rounded-xl bg-zinc-800/50 p-6">
-      <h2 className="text-2xl font-bold mb-4">USDC Payment</h2>
-      
-      {orderStatus === 'creating' && (
-        <div className="flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-          <span className="ml-3">Creating order...</span>
-        </div>
-      )}
-
-      {orderStatus === 'completed' && hash && (
-        <div className="space-y-6">
-          <div className="bg-green-500/10 rounded-lg p-6 border border-green-500/20">
-            <h3 className="text-xl font-bold mb-4 text-green-400">Transaction Sent</h3>
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-zinc-400 mb-1">Transaction Hash</p>
-                <p className="font-mono text-sm break-all bg-zinc-900/50 p-2 rounded">{hash}</p>
-              </div>
-              <button
-                onClick={processCryptoPayment}
-                disabled={isProcessing}
-                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isProcessing ? 'Processing Payment...' : 'Process Payment'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {orderStatus === 'processed' && (
-        <div className="space-y-6">
-          <div className="bg-green-500/10 rounded-lg p-6 border border-green-500/20">
-            <div className="text-center">
-              <div className="flex justify-center mb-6">
-                <div className="animate-bounce bg-gradient-to-r from-green-400 to-emerald-400 rounded-full p-2">
-                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                  </svg>
-                </div>
-              </div>
-              <h3 className="text-2xl font-bold mb-2 text-green-400">Congratulations!</h3>
-              <p className="text-lg text-zinc-300 mb-4">Payment successfully completed</p>
-              <p className="text-sm text-zinc-400">Check your inbox to find the minted NFT!</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {orderStatus === 'awaiting-payment' && orderDetails && (
-        <div className="space-y-6">
-          <div className="bg-indigo-500/10 rounded-lg p-6 border border-indigo-500/20">
-            <h3 className="text-xl font-bold mb-4 text-indigo-400">Payment Details</h3>
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-zinc-400 mb-1">Order ID</p>
-                <p className="font-mono text-sm break-all bg-zinc-900/50 p-2 rounded">{orderDetails.orderId}</p>
-              </div>
-              <div>
-                <ConnectButton showBalance={false} chainStatus="full" accountStatus="full" />
-              </div>
-              {orderDetails.serializedTx && (
-                <div>
-                  <p className="text-sm text-zinc-400 mb-1">Transaction Details</p>
-                  <p className="font-mono text-sm break-all bg-zinc-900/50 p-2 rounded">{orderDetails.serializedTx}</p>
-                  {error && (
-                    <div className="mt-2 p-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded">
-                      {error.includes('insufficient funds') ? 
-                        'Insufficient funds. Please make sure you have enough ETH to cover the transaction.' : 
-                        error
-                      }
-                    </div>
-                  )}
-                  <button
-                    onClick={() => signAndSendTransaction()}
-                    disabled={isPending}
-                    className="mt-4 w-full bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 hover:from-indigo-700 hover:via-blue-700 hover:to-cyan-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isPending ? 'Confirming...' : 'Send Transaction'}
-                  </button>
-                  {hash && (
-                    <div className="mt-4 p-2 bg-zinc-900/50 rounded">
-                      <p className="text-sm text-zinc-400">Transaction Hash:</p>
-                      <code className="text-xs break-all">{hash}</code>
-                    </div>
-                  )}
-                </div>
-              )}
-              <div>
-                <p className="text-sm text-zinc-400 mb-1">Payment Address</p>
-                <p className="font-mono text-sm break-all bg-zinc-900/50 p-2 rounded">{orderDetails.paymentAddress}</p>
-              </div>
-              <div>
-                <p className="text-sm text-zinc-400 mb-1">Amount</p>
-                <p className="font-mono text-sm break-all bg-zinc-900/50 p-2 rounded">{orderDetails.amount} USDC</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    <PaymentContainer title="Crypto Payment">
+      {renderContent()}
+    </PaymentContainer>
   );
 } 

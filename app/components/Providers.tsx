@@ -2,13 +2,13 @@
 
 import { getDefaultConfig, RainbowKitProvider } from "@rainbow-me/rainbowkit";
 import { WagmiProvider } from "wagmi";
-import { baseSepolia } from "wagmi/chains";
+import { sepolia } from "wagmi/chains";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 
 const config = getDefaultConfig({
   appName: "CSE Headless Checkout",
-  projectId: process.env.NEXT_PUBLIC_REOWN_PROJECT_ID ?? "",
-  chains: [baseSepolia],
+  projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_ID ?? "",
+  chains: [sepolia],
   ssr: true,
 });
 

@@ -2,9 +2,34 @@ import { NextResponse } from 'next/server';
 
 const CROSSMINT_API_URL = 'https://staging.crossmint.com/api/2022-06-09';
 
-export async function POST() {
+// Define valid options
+const VALID_CHAINS = ['ethereum-sepolia', 'base-sepolia'];
+const VALID_CURRENCIES = ['eth', 'usdc'];
+
+export async function POST(request: Request) {
   try {
-    console.log('Creating order with Crossmint...');
+    // Parse request body
+    const body = await request.json().catch(() => ({}));
+    const chain = body.chain || 'ethereum-sepolia';
+    const currency = body.currency || 'usdc';
+
+    // Validate parameters
+    if (!VALID_CHAINS.includes(chain)) {
+      return NextResponse.json(
+        { error: `Invalid chain: ${chain}. Valid options are: ${VALID_CHAINS.join(', ')}` },
+        { status: 400 }
+      );
+    }
+
+    if (!VALID_CURRENCIES.includes(currency)) {
+      return NextResponse.json(
+        { error: `Invalid currency: ${currency}. Valid options are: ${VALID_CURRENCIES.join(', ')}` },
+        { status: 400 }
+      );
+    }
+
+    console.log(`Creating order with Crossmint using chain=${chain}, currency=${currency}...`);
+    
     const response = await fetch(`${CROSSMINT_API_URL}/orders`, {
       method: 'POST',
       headers: {
@@ -17,8 +42,8 @@ export async function POST() {
         },
         locale: "en-US",
         payment: {
-          method: "base-sepolia",
-          currency: "usdc",
+          method: chain,
+          currency: currency,
           payerAddress: process.env.CROSSMINT_PAYER_ADDRESS ?? ""
         },
         lineItems: {

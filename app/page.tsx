@@ -60,7 +60,7 @@ export default function Home() {
               className="group relative inline-flex items-center justify-center px-10 py-4 text-lg font-bold transition-all duration-200 bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 rounded-xl hover:from-indigo-700 hover:via-blue-700 hover:to-cyan-700 shadow-xl shadow-indigo-500/20 hover:shadow-indigo-500/40 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none min-w-[200px]"
             >
               <span className="absolute inset-0 w-full h-full bg-white/20 group-hover:bg-white/10 rounded-xl"></span>
-              <span className="relative">Pay with USDC</span>
+              <span className="relative">Pay with Crypto</span>
             </button>
           </div>
         </div>
